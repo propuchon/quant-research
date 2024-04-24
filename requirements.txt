@@ -7,9 +7,9 @@ ipykernel
 requests
 git+https://github.com/rongardF/tvdatafeed.git
 
-# backtest
-backtrader[plotting]
-vectorbt
+# # backtest NOTE: optional
+# backtrader[plotting]
+# vectorbt
 
 # visualization
 matplotlib
