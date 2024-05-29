@@ -92,6 +92,20 @@ def _cal_stdev(
 
 
 # ########################
+# TRANSFORM SERIES TO TABLE
+# ########################
+def transform_to_table(data: pd.Series) -> pd.DataFrame:
+    """Transform stats table which index is datetime and values is percentage"""
+    df = pd.DataFrame(data)
+    df.rename(columns={"close": "%"}, inplace=True)
+    df["%"] = df["%"].apply(lambda x: "{:.2f}".format(x))
+    df.index.name = "year"
+    df.index = df.index.astype(str)
+
+    return df
+
+
+# ########################
 # PLOT
 # ########################
 def plot_close_prices_histogram(

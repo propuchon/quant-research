@@ -10,6 +10,7 @@ from utils import (
     plot_close_prices_histogram,
     plot_close_prices_histogram_by_year,
     plot_close_prices_histogram_with_stdev,
+    transform_to_table,
 )
 
 interval = Interval.in_daily
@@ -82,91 +83,57 @@ st.title("Volatility")
 col1, col2 = st.columns(2)
 with col1:
     option = st.selectbox("Method", ("PERCENTAGE", "HLO"))
-    filter = st.toggle("Filter Outlier")
+    filter = st.toggle("Filter Outlier (99%)")
+
+
+def calculate_and_display_return_stats(data, timeframe, option, filter=False):
+    # Calculate volatility based on the specified timeframe
+    volatility = cal_voltility(data, timeframe=timeframe, method=Method[option]) * 100
+
+    # Filter blackswan if required
+    if filter:
+        filtered_volatility = volatility[volatility < volatility.quantile(0.99)]
+    else:
+        filtered_volatility = volatility
+
+    # Calculate basic statistics
+    data_min, data_max, data_mean = cal_stats(data=filtered_volatility)
+    stats = pd.DataFrame(
+        [
+            {"": "min", "%": data_min},
+            {"": "max", "%": data_max},
+            {"": "mean", "%": data_mean},
+        ]
+    )
+    # Format the values with two decimal places
+    stats["%"] = stats["%"].apply(lambda x: "{:.2f}".format(x))
+
+    # Display basic statistics
+    if timeframe == TimeFrame.DAILY:
+        st.header("Daily Return")
+    elif timeframe == TimeFrame.YEARLY:
+        st.header("Yearly Return")
+    st.dataframe(data=stats, hide_index=True, use_container_width=True)
+
+    # Calculate and display annualized volatility
+    df = transform_to_table(filtered_volatility)
+    st.dataframe(data=df, use_container_width=True)
+
+    # Show removed outliers if filter is applied
+    if filter:
+        remove_indices = volatility.index.difference(filtered_volatility.index)
+        st.write(f"\nRemove out of quantile 99%:")
+        df = transform_to_table(volatility[remove_indices])
+        st.dataframe(data=df, use_container_width=True)
+
 
 col1, col2 = st.columns(2)
 with col1:
-    daily_volatility = (
-        cal_voltility(data, timeframe=TimeFrame.DAILY, method=Method[option]) * 100
+    calculate_and_display_return_stats(
+        data=data, timeframe=TimeFrame.DAILY, option=option, filter=filter
     )
-
-    if filter:
-        # filter blackswan
-        vol_data = daily_volatility[daily_volatility < daily_volatility.quantile(0.99)]
-    else:
-        vol_data = daily_volatility
-
-    # ### BASIC STATS ###
-    st.header("Daily Return")
-    data_min, data_max, data_mean = cal_stats(data=vol_data)
-    stats = pd.DataFrame(
-        [
-            {"": "min", "%": data_min},
-            {"": "max", "%": data_max},
-            {"": "mean", "%": data_mean},
-        ]
-    )
-    st.dataframe(data=stats, hide_index=True, use_container_width=True)
-
-    # ### ANNUALIZED ###
-    annualized = pd.DataFrame(vol_data)
-    annualized.rename(columns={"close": "%"}, inplace=True)
-    annualized["%"] = annualized["%"].apply(lambda x: "{:.2f}".format(x))
-    annualized.index.name = "year"
-    annualized.index = annualized.index.astype(str)
-    st.dataframe(data=annualized, use_container_width=True)
-
-    # show remove outlier
-    if filter:
-        remove_indices = daily_volatility.index.difference(vol_data.index)
-        st.write(f"\nRemove out of quantile 99%:")
-        annualized = pd.DataFrame(daily_volatility[remove_indices])
-        annualized.rename(columns={"close": "%"}, inplace=True)
-        annualized["%"] = annualized["%"].apply(lambda x: "{:.2f}".format(x))
-        annualized.index.name = "year"
-        annualized.index = annualized.index.astype(str)
-        st.dataframe(data=annualized, use_container_width=True)
 
 with col2:
-    annualized_volatility = (
-        cal_voltility(data, timeframe=TimeFrame.YEARLY, method=Method[option]) * 100
+    calculate_and_display_return_stats(
+        data=data, timeframe=TimeFrame.YEARLY, option=option, filter=filter
     )
-
-    # filter blackswan
-    if filter:
-        # filter blackswan
-        vol_data = annualized_volatility[
-            annualized_volatility < annualized_volatility.quantile(0.99)
-        ]
-    else:
-        vol_data = annualized_volatility
-    # ### BASIC STATS ###
-    st.header("Yearly Return")
-    data_min, data_max, data_mean = cal_stats(data=vol_data)
-    stats = pd.DataFrame(
-        [
-            {"": "min", "%": data_min},
-            {"": "max", "%": data_max},
-            {"": "mean", "%": data_mean},
-        ]
-    )
-    st.dataframe(data=stats, hide_index=True, use_container_width=True)
-
-    # ### ANNUALIZED ###
-    annualized = pd.DataFrame(vol_data)
-    annualized.rename(columns={"close": "%"}, inplace=True)
-    annualized["%"] = annualized["%"].apply(lambda x: "{:.2f}".format(x))
-    annualized.index.name = "year"
-    annualized.index = annualized.index.astype(str)
-    st.dataframe(data=annualized, use_container_width=True)
-
-    # show remove outlier
-    if filter:
-        remove_indices = annualized_volatility.index.difference(vol_data.index)
-        st.write(f"\nRemove out of quantile 99%:")
-        annualized = pd.DataFrame(annualized_volatility[remove_indices])
-        annualized.rename(columns={"close": "%"}, inplace=True)
-        annualized["%"] = annualized["%"].apply(lambda x: "{:.2f}".format(x))
-        annualized.index.name = "year"
-        annualized.index = annualized.index.astype(str)
-        st.dataframe(data=annualized, use_container_width=True)
