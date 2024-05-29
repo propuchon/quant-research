@@ -1,5 +1,81 @@
+from matplotlib import pyplot as plt
 import pandas as pd
+import numpy as np
 import plotly.express as px
+import plotly.graph_objs as go
+
+from enum import Enum
+
+
+# ########################
+# ENUM
+# ########################
+class TimeFrame(Enum):
+    DAILY = "daily"
+    YEARLY = "yearly"
+
+
+class Method(Enum):
+    PERCENTAGE = "pct"
+    HLO = "hlo"  # (high - low) / close
+
+
+# ########################
+# CALCULATION
+# ########################
+def cal_voltility(data: pd.DataFrame, timeframe=TimeFrame, method=Method) -> pd.Series:
+    """
+    Calculate the volatility of financial data.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        A DataFrame containing financial data, including columns for 'open', 'high', 'low', and 'close'.
+    timeframe : TimeFrame, optional
+        The timeframe over which to calculate volatility, either TimeFrame.DAILY or TimeFrame.YEARLY.
+        Defaults to TimeFrame.DAILY.
+    method : Method, optional
+        The method to use for calculating volatility, either Method.PERCENTAGE or Method.HLO.
+        Defaults to Method.PERCENTAGE.
+
+    Returns
+    -------
+    pd.Series
+        A pandas Series containing the calculated volatility.
+
+    Raises
+    ------
+    ValueError
+        If an invalid method is provided.
+    """
+
+    def _cal_method(data: pd.Series):
+        return (
+            data.groupby(data.index.year).std()
+            if timeframe == TimeFrame.DAILY
+            else data.groupby(data.index.year).std() * np.sqrt(252)
+        )
+
+    if method == Method.PERCENTAGE:
+        volatility = data["close"].pct_change()
+        return _cal_method(data=volatility)
+    elif method == method.HLO:
+        volatility = (data["high"] - data["low"]) / data["open"]
+        return _cal_method(data=volatility)
+    else:
+        raise ValueError("Not found method!")
+
+
+def cal_stats(data: pd.Series):
+    """Calculate the min max and mean from the series data which normalized as percentage"""
+    data_min = round(data.min(), 2)
+    data_max = round(data.max(), 2)
+    data_mean = round(data.mean(), 2)
+
+    # # Output
+    # print(f"min: {data_min}%\nmax: {data_max}%\nmean: {data_mean}%")
+
+    return data_min, data_max, data_mean
 
 
 def _cal_stdev(
@@ -15,6 +91,9 @@ def _cal_stdev(
     return stdev_pos_1, stdev_neg_1, stdev_pos_2, stdev_neg_2, stdev_pos_3, stdev_neg_3
 
 
+# ########################
+# PLOT
+# ########################
 def plot_close_prices_histogram(
     data: pd.DataFrame,
     title=None,
@@ -37,7 +116,25 @@ def plot_close_prices_histogram(
     )
 
     # Updating layout for customization
-    fig.update_layout(xaxis_title=x_label, yaxis_title=y_label, showlegend=False)
+    last_close_price = data["close"].iloc[-1]
+    fig.add_trace(
+        go.Scatter(
+            x=[last_close_price],
+            y=[0],
+            mode="markers+text",
+            text=[f"Last Price: {last_close_price:.2f}"],
+            textposition="top center",
+            marker=dict(color="green", size=10),
+            name="Last Price",
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        showlegend=False,
+        hovermode="x unified",
+    )
 
     if grid:
         fig.update_xaxes(showgrid=True)
@@ -47,6 +144,42 @@ def plot_close_prices_histogram(
         fig.update_yaxes(showgrid=False)
 
     return fig
+
+
+def plot_close_prices_histogram_by_year(
+    data: pd.DataFrame,
+    title=None,
+    x_label="Closing Price",
+    y_label="Frequency",
+    grid=True,
+):
+    """Plot the close price histogram by year"""
+    # Check if DataFrame index is of datetime type
+    if not isinstance(data.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame index must be of datetime type")
+
+    # Group data by year
+    grouped_data = data.groupby(data.index.year)
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    for year, year_data in grouped_data:
+        plt.hist(year_data["close"], bins=50, alpha=0.7, label=str(year))
+
+    # Customization
+    if title:
+        plt.title(title)
+    else:
+        plt.title(
+            f"Histogram of Closing Prices by Year from {data.index.year[0]} to {data.index.year[-1]}"
+        )
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    if grid:
+        plt.grid(True)
+    plt.legend(title="Year")
+
+    return plt
 
 
 def plot_close_prices_histogram_with_stdev(
@@ -78,13 +211,13 @@ def plot_close_prices_histogram_with_stdev(
 
     # Adding vertical lines for mean and SD ranges
     lines = [
-        {"x": mean, "color": "blue", "dash": "solid", "name": "Mean"},
-        {"x": stdev_pos_1, "color": "blue", "dash": "dash", "name": "Mean + 1SD"},
-        {"x": stdev_neg_1, "color": "blue", "dash": "dash", "name": "Mean - 1SD"},
-        {"x": stdev_pos_2, "color": "green", "dash": "dash", "name": "Mean + 2SD"},
-        {"x": stdev_neg_2, "color": "green", "dash": "dash", "name": "Mean - 2SD"},
-        {"x": stdev_pos_3, "color": "red", "dash": "dash", "name": "Mean + 3SD"},
-        {"x": stdev_neg_3, "color": "red", "dash": "dash", "name": "Mean - 3SD"},
+        {"x": mean, "color": "white", "dash": "solid", "name": "Mean"},
+        {"x": stdev_pos_1, "color": "coral", "dash": "dash", "name": "Mean + 1SD"},
+        {"x": stdev_neg_1, "color": "coral", "dash": "dash", "name": "Mean - 1SD"},
+        {"x": stdev_pos_2, "color": "cadetblue", "dash": "dash", "name": "Mean + 2SD"},
+        {"x": stdev_neg_2, "color": "cadetblue", "dash": "dash", "name": "Mean - 2SD"},
+        {"x": stdev_pos_3, "color": "crimson", "dash": "dash", "name": "Mean + 3SD"},
+        {"x": stdev_neg_3, "color": "crimson", "dash": "dash", "name": "Mean - 3SD"},
     ]
 
     for line in lines:
@@ -104,8 +237,8 @@ def plot_close_prices_histogram_with_stdev(
     for line in lines:
         fig.add_annotation(
             x=line["x"],
-            y=0,
-            yanchor="bottom",
+            y=1.05,
+            yanchor="top",
             text=line["name"],
             showarrow=False,
             font=dict(color=line["color"]),
@@ -113,7 +246,26 @@ def plot_close_prices_histogram_with_stdev(
         )
 
     # Updating layout for customization
-    fig.update_layout(xaxis_title=x_label, yaxis_title=y_label, showlegend=False)
+    last_close_price = data["close"].iloc[-1]
+    fig.add_trace(
+        go.Scatter(
+            x=[last_close_price],
+            y=[0],
+            mode="markers+text",
+            text=[f"Last Price: {last_close_price:.2f}"],
+            textposition="top center",
+            marker=dict(color="green", size=10),
+            name="Last Price",
+        )
+    )
+
+    # Updating layout for customization
+    fig.update_layout(
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        showlegend=False,
+        hovermode="x unified",
+    )
 
     if grid:
         fig.update_xaxes(showgrid=True)
