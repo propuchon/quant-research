@@ -10,6 +10,7 @@ from utils import (
     plot_close_prices_histogram,
     plot_close_prices_histogram_by_year,
     plot_close_prices_histogram_with_stdev,
+    plot_volatility_by_hlo,
     transform_to_table,
 )
 
@@ -80,10 +81,10 @@ st.plotly_chart(fig)
 
 
 st.title("Volatility")
-col1, col2 = st.columns(2)
-with col1:
-    option = st.selectbox("Method", ("PERCENTAGE", "HLO"))
-    filter = st.toggle("Filter Outlier (99%)")
+fig = plot_volatility_by_hlo(
+    data=data, title="(H-L / O) vs Close Price", x_label="Price", y_label="Percentage"
+)
+st.plotly_chart(fig)
 
 
 def calculate_and_display_return_stats(data, timeframe, option, filter=False):
@@ -109,15 +110,15 @@ def calculate_and_display_return_stats(data, timeframe, option, filter=False):
     stats["%"] = stats["%"].apply(lambda x: "{:.2f}".format(x))
 
     # Display basic statistics
-    if timeframe == TimeFrame.DAILY:
-        st.header("Daily Return")
-    elif timeframe == TimeFrame.YEARLY:
-        st.header("Yearly Return")
-    st.dataframe(data=stats, hide_index=True, use_container_width=True)
+    st.subheader(
+        "Daily Volatility" if timeframe == TimeFrame.DAILY else "Annualized Volatility"
+    )
 
     # Calculate and display annualized volatility
     df = transform_to_table(filtered_volatility)
+
     st.dataframe(data=df, use_container_width=True)
+    st.dataframe(data=stats, hide_index=True, use_container_width=True)
 
     # Show removed outliers if filter is applied
     if filter:
@@ -126,6 +127,12 @@ def calculate_and_display_return_stats(data, timeframe, option, filter=False):
         df = transform_to_table(volatility[remove_indices])
         st.dataframe(data=df, use_container_width=True)
 
+
+st.title("Statistics")
+col1, col2 = st.columns(2)
+with col1:
+    option = st.selectbox("Method", ("PERCENTAGE", "HLO"))
+    filter = st.toggle("Filter Outlier (99%)")
 
 col1, col2 = st.columns(2)
 with col1:

@@ -289,3 +289,39 @@ def plot_close_prices_histogram_with_stdev(
         fig.update_yaxes(showgrid=False)
 
     return fig
+
+
+def plot_volatility_by_hlo(
+    data: pd.DataFrame,
+    title=None,
+    x_label="Closing Price",
+    y_label="Frequency",
+    grid=True,
+):
+    data["%"] = ((data["high"] - data["low"]) / data["open"]) * 100
+
+    # Create the scatter plot with Plotly
+    fig = px.scatter(
+        data,
+        x="close",
+        y="%",
+        title="(High - Low) / Open vs Closing Price",
+        opacity=0.5,
+    )
+
+    # Updating layout for customization
+    fig.update_layout(
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        showlegend=False,
+        hovermode="x unified",
+    )
+
+    if grid:
+        fig.update_xaxes(showgrid=True)
+        fig.update_yaxes(showgrid=True)
+    else:
+        fig.update_xaxes(showgrid=False)
+        fig.update_yaxes(showgrid=False)
+
+    return fig
