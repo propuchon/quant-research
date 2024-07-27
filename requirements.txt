@@ -19,6 +19,9 @@ plotly
 # dashboard
 streamlit
 
+# scraping
+beautifulsoup4
+
 # format
 autoflake
 isort
